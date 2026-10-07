@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from email_service import get_email_service
-from grok_service import summarize_with_grok
+from groq_service import summarize_with_groq
 from template import format_email_report
 
 logging.basicConfig(
@@ -131,10 +131,10 @@ def lambda_handler(event: Dict[str, Any], context: Any = None) -> Dict[str, Any]
 
     logger.info("Processing health data for %d office(s): %s", len(offices), [o.get("office_id") for o in offices])
 
-    # 1. Summarize and recommend actions with Grok (PRD Section 14 & 15)
-    summary, action_needed = summarize_with_grok(offices)
-    logger.info("Grok Summary: %s", summary)
-    logger.info("Grok Action Needed: %s", action_needed)
+    # 1. Summarize and recommend actions with Groq (Fast LLM Inference)
+    summary, action_needed = summarize_with_groq(offices)
+    logger.info("Groq Summary: %s", summary)
+    logger.info("Groq Action Needed: %s", action_needed)
 
     # 2. Format Email Report (PRD Section 21 & 22)
     subject, html_content, text_content = format_email_report(offices, summary, action_needed)

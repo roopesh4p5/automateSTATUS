@@ -5,7 +5,7 @@ A lightweight, outbound-only network health monitoring system that measures offi
 Designed for:
 - **Office Devices**: Windows laptops in server rooms (starting with Bangalore, expandable to Mangalore via configuration).
 - **AWS Backend**: Serverless AWS Lambda behind API Gateway (cost-effective, zero running EC2 instances, zero database).
-- **AI Engine**: Grok (xAI) for concise status summaries and technical recommendations with strict grounding guardrails.
+- **AI Engine**: Groq (Fast LLM Inference: `llama-3.3-70b-versatile`) for concise status summaries and technical recommendations with strict grounding guardrails.
 - **Email Delivery**: Provider-agnostic abstraction supporting **SMTP** and **EmailJS**.
 
 ---
@@ -31,7 +31,7 @@ AWS API Gateway (`POST /health`)
   ▼
 AWS Lambda Function
   │
-  ├──── Grok API (Summarization & Actions)
+  ├──── Groq API (Summarization & Actions)
   │
   └──── Email Service (SMTP or EmailJS)
   │
@@ -179,10 +179,10 @@ Set these in your AWS Lambda Function configuration:
 - `MANGALORE_API_KEY`: Secret key for Mangalore laptop.
 - Or `API_KEY`: Global API key shared across offices.
 
-#### Grok (xAI) Configuration
-- `GROK_API_KEY`: Your xAI Grok API Key. *(If omitted, uses rule-based generator).*
-- `GROK_MODEL`: Grok model identifier (default: `grok-beta`).
-- `GROK_BASE_URL`: Optional custom endpoint (default: `https://api.x.ai/v1`).
+#### Groq AI Configuration (https://console.groq.com)
+- `GROQ_API_KEY`: Your Groq API Key from https://console.groq.com/keys. *(If omitted, uses rule-based generator).*
+- `GROQ_MODEL`: Groq model identifier (default: `llama-3.3-70b-versatile` or `llama-3.1-8b-instant`).
+- `GROQ_BASE_URL`: Optional custom endpoint (default: `https://api.groq.com/openai/v1`).
 
 #### Email Configuration (Provider Abstraction)
 - `REPORT_RECIPIENTS`: Destination email address(es) (comma-separated).

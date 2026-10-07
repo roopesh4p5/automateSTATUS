@@ -26,7 +26,7 @@ AWS API Gateway (/health)
        ▼
 AWS Lambda
        │
-       ├── xAI Grok API (Summarizes & recommends actions)
+       ├── Groq API (Fast LLM: Summarizes & recommends actions)
        │
        └── Email Service (SMTP or EmailJS)
        │
@@ -48,14 +48,18 @@ BANGALORE_API_KEY=your-secret-bangalore-key-123
 MANGALORE_API_KEY=your-secret-mangalore-key-456
 
 # ==========================================
-# 2. GROK AI CONFIGURATION (PRD Section 15)
+# 2. GROQ AI CONFIGURATION (Fast LLM Inference)
 # ==========================================
-# Get your API key from https://console.x.ai
-GROK_API_KEY=xai-xxxxxxxxxxxxxxxxxxxx
-GROK_MODEL=grok-beta
-# (Optional) GROK_BASE_URL=https://api.x.ai/v1
+# Get your API key from https://console.groq.com/keys
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GROQ_MODEL=llama-3.3-70b-versatile
+# (Optional) GROQ_BASE_URL=https://api.groq.com/openai/v1
 
-# Note: If GROK_API_KEY is left empty, the system automatically
+# Popular Groq models:
+# - llama-3.3-70b-versatile (Recommended)
+# - llama-3.1-8b-instant (Fastest, lightweight)
+
+# Note: If GROQ_API_KEY is left empty, the system automatically
 # uses an intelligent rule-based summarizer without failing.
 
 # ==========================================
@@ -97,7 +101,7 @@ On your development machine, package the backend files into a `.zip` file:
 
 ```bash
 cd aws-backend
-zip -r ../lambda_function.zip lambda_function.py grok_service.py template.py email_service/
+zip -r ../lambda_function.zip lambda_function.py groq_service.py grok_service.py template.py email_service/
 cd ..
 ```
 
@@ -119,12 +123,12 @@ cd ..
    - Ensure **Handler** is set to `lambda_function.lambda_handler`.
 7. In the **Configuration** tab:
    - Go to **General configuration** -> **Edit**:
-     - **Timeout**: Set to `30 seconds` (gives Grok and email enough time to respond).
+     - **Timeout**: Set to `30 seconds` (gives Groq and email enough time to respond).
      - **Memory**: `128 MB` (minimal cost).
    - Go to **Environment variables** -> **Edit** and add:
      - `BANGALORE_API_KEY`: e.g. `secret-bangalore-key-123`
-     - `GROK_API_KEY`: your xAI key (or leave blank to use rule-based fallback)
-     - `GROK_MODEL`: `grok-beta`
+     - `GROQ_API_KEY`: your Groq API key from https://console.groq.com/keys
+     - `GROQ_MODEL`: `llama-3.3-70b-versatile` (or `llama-3.1-8b-instant`)
      - `EMAIL_PROVIDER`: `smtp`
      - `SMTP_HOST`: `smtp.gmail.com`
      - `SMTP_PORT`: `587`
