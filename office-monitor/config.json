@@ -1,0 +1,38 @@
+{
+  "office_id": "bangalore",
+  "office_name": "Bangalore",
+  "aws_endpoint": "http://localhost:8080/health",
+  "api_key": "bangalore-secret-key-123",
+  "check_interval_minutes": 60,
+  "targets": {
+    "ping_targets": ["1.1.1.1", "8.8.8.8"],
+    "dns_targets": ["google.com", "cloudflare.com"],
+    "http_targets": ["https://1.1.1.1", "https://8.8.8.8", "https://www.google.com"]
+  },
+  "thresholds": {
+    "packet_loss": {
+      "healthy_max": 2.0,
+      "warning_max": 5.0,
+      "degraded_max": 10.0
+    },
+    "latency_ms": {
+      "healthy_max": 100.0,
+      "warning_max": 200.0,
+      "degraded_max": 300.0
+    },
+    "download_mbps": {
+      "warning_min": 20.0
+    },
+    "upload_mbps": {
+      "warning_min": 5.0
+    }
+  },
+  "speed_test": {
+    "enabled": true,
+    "download_url": "https://speed.cloudflare.com/__down?bytes=10000000",
+    "upload_url": "https://speed.cloudflare.com/__up",
+    "download_bytes": 10485760,
+    "upload_bytes": 2097152,
+    "timeout_seconds": 15
+  }
+}

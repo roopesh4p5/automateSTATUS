@@ -1,0 +1,6 @@
+# AWS Backend Requirements
+#
+# Designed to run in AWS Lambda Python 3.9+ runtime.
+# Standard library is prioritized so deployment package can be lightweight with zero layers.
+# Optional requests library is supported.
+requests>=2.28.0

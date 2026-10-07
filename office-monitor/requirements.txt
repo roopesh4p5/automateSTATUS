@@ -1,0 +1,6 @@
+# Office Monitor Requirements
+#
+# The office monitor is designed to work with Python 3.8+ using primarily the standard library
+# so it can run with minimal or zero external dependencies on office laptops.
+# Optional requests library is included for convenience.
+requests>=2.28.0
