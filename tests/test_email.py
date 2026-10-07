@@ -105,6 +105,38 @@ class TestEmail(unittest.TestCase):
         self.assertEqual(mock_svc.sent_messages[0]["subject"], "Test Subject")
         self.assertEqual(mock_svc.sent_messages[0]["to"], "admin@example.com")
 
+    def test_smtp_multiple_recipients(self):
+        from unittest.mock import MagicMock, patch
+        from email_service.smtp import SmtpEmailService
+
+        svc = SmtpEmailService(from_email="noreply@example.com")
+        with patch("smtplib.SMTP") as mock_smtp:
+            mock_server = MagicMock()
+            mock_smtp.return_value = mock_server
+
+            # Test comma-separated string
+            success = svc.send_email(
+                subject="Test",
+                html_content="<p>Hi</p>",
+                text_content="Hi",
+                recipients="user1@company.com, user2@company.com, user3@company.com",
+            )
+            self.assertTrue(success)
+            args, _ = mock_server.sendmail.call_args
+            self.assertEqual(args[1], ["user1@company.com", "user2@company.com", "user3@company.com"])
+
+            # Test semicolon-separated string
+            success = svc.send_email(
+                subject="Test",
+                html_content="<p>Hi</p>",
+                text_content="Hi",
+                recipients="user1@company.com; user2@company.com",
+            )
+            self.assertTrue(success)
+            args, _ = mock_server.sendmail.call_args
+            self.assertEqual(args[1], ["user1@company.com", "user2@company.com"])
+
 
 if __name__ == "__main__":
     unittest.main()
+

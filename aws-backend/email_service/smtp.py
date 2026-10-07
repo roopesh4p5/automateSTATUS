@@ -41,7 +41,7 @@ class SmtpEmailService(EmailService):
         from_email: Optional[str] = None,
     ) -> bool:
         if isinstance(recipients, str):
-            recipient_list = [r.strip() for r in recipients.split(",") if r.strip()]
+            recipient_list = [r.strip() for r in recipients.replace(";", ",").split(",") if r.strip()]
         else:
             recipient_list = list(recipients)
 

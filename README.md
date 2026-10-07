@@ -57,9 +57,14 @@ automateSTATUS/
 │   │   ├── latency.py                    # Packet loss and RTT latency
 │   │   ├── speed.py                      # Download & upload bandwidth tests
 │   │   └── ping_utils.py                 # Cross-platform ping execution
-│   └── utils/
-│       ├── classifier.py                 # Technical health determination
-│       └── reporting.py                  # HTTPS delivery to AWS
+│   ├── utils/
+│   │   ├── classifier.py                 # Technical health determination
+│   │   └── reporting.py                  # HTTPS delivery to AWS
+│   └── scripts/                          # Windows automation & testing scripts
+│       ├── setup_task_windows.ps1        # Headless Task Scheduler (PowerShell)
+│       ├── setup_task_windows.bat        # Headless Task Scheduler (CMD Batch)
+│       ├── run_headless.vbs              # Silent invisible background runner
+│       └── test_local_e2e.py             # End-to-end integration test runner
 ├── aws-backend/                          # Serverless backend
 │   ├── lambda_function.py                # Main AWS Lambda handler
 │   ├── grok_service.py                   # Grok API integration & prompt guardrails
@@ -71,10 +76,6 @@ automateSTATUS/
 │       ├── smtp.py                       # Standard SMTP client (Gmail, SES, etc.)
 │       ├── emailjs.py                    # EmailJS REST API client
 │       └── mock.py                       # Local simulation & logger
-├── scripts/
-│   ├── setup_task_windows.ps1            # Windows Task Scheduler (PowerShell)
-│   ├── setup_task_windows.bat            # Windows Task Scheduler (CMD Batch)
-│   └── test_local_e2e.py                 # End-to-end integration test runner
 └── tests/                                # Automated unit test suite
     ├── test_checks.py
     ├── test_classifier.py
@@ -114,7 +115,7 @@ You will see:
 
 ### Step 3: Run the Automated E2E Test Suite
 ```bash
-python3 scripts/test_local_e2e.py
+python3 office-monitor/scripts/test_local_e2e.py
 ```
 This tests single-office reporting, multi-office aggregation (Bangalore + Mangalore), authentication failure handling, and simulated router outages.
 
@@ -230,7 +231,7 @@ Set these in your AWS Lambda Function configuration:
 Follow Section 30 of the PRD:
 
 1. **Install Python 3.9+** on the Bangalore Windows laptop. Ensure "Add Python to PATH" is checked during installation.
-2. Copy the `office-monitor/` folder and `scripts/` folder to `C:\office-monitor\`.
+2. Copy the `office-monitor/` folder to `C:\office-monitor\` (the `scripts/` folder is included inside).
 3. In `C:\office-monitor\config.json`, verify:
    ```json
    "office_id": "bangalore",
@@ -243,16 +244,17 @@ Follow Section 30 of the PRD:
    python C:\office-monitor\monitor.py
    ```
    Verify all 7 checks succeed and the email report arrives.
-5. **Enable hourly Windows Task Scheduler** (PRD Section 23 & 24):
+5. **Enable headless Windows Task Scheduler** (PRD Section 23 & 24):
    - Right-click PowerShell -> **Run as Administrator**:
      ```powershell
      cd C:\office-monitor\scripts
-     .\setup_task_windows.ps1 -Action Register
+     .\setup_task_windows.ps1 -Action Register -IntervalMinutes 10
      ```
-   - Or run `setup_task_windows.bat`.
+   - Or run `setup_task_windows.bat 10`.
 
 The task will run:
-- Every 1 hour at minute 00.
+- Completely **headlessly** via `pythonw.exe` in Hidden mode (no black terminal or CMD window will ever pop up).
+- Every 10 minutes (or every 1 hour in production with `-IntervalMinutes 60`).
 - Even if no user is currently logged on.
 - Automatically after a laptop restart or power outage.
 

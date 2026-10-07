@@ -21,12 +21,23 @@ param (
     [string]$TaskName = "OfficeNetworkHealthMonitor",
 
     [Parameter(Mandatory = $false)]
-    [string]$PythonPath = "python.exe"
+    [string]$PythonPath = "pythonw.exe",
+
+    [Parameter(Mandatory = $false)]
+    [int]$IntervalMinutes = 10
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$projectRoot = Split-Path -Parent $scriptDir
-$monitorScript = Join-Path $projectRoot "office-monitor\monitor.py"
+# Detect office-monitor directory (scripts is inside office-monitor/)
+$parentDir = Split-Path -Parent $scriptDir
+if (Test-Path (Join-Path $parentDir "monitor.py")) {
+    $officeMonitorDir = $parentDir
+} elseif (Test-Path (Join-Path $scriptDir "..\office-monitor\monitor.py")) {
+    $officeMonitorDir = (Resolve-Path (Join-Path $scriptDir "..\office-monitor")).Path
+} else {
+    $officeMonitorDir = $parentDir
+}
+$monitorScript = Join-Path $officeMonitorDir "monitor.py"
 
 Write-Host "========================================================" -ForegroundColor Cyan
 Write-Host "  Office Network Health Monitor - Windows Task Setup   " -ForegroundColor Cyan
@@ -41,30 +52,44 @@ if ($Action -eq "Register") {
         exit 1
     }
 
-    # Verify python path
+    # Verify and resolve headless pythonw.exe (prevents any terminal window from popping up)
     $resolvedPython = (Get-Command $PythonPath -ErrorAction SilentlyContinue).Source
     if (-not $resolvedPython) {
-        $resolvedPython = "python.exe"
+        $stdPython = (Get-Command "python.exe" -ErrorAction SilentlyContinue).Source
+        if ($stdPython) {
+            $pyDir = Split-Path -Parent $stdPython
+            $candidateW = Join-Path $pyDir "pythonw.exe"
+            if (Test-Path $candidateW) {
+                $resolvedPython = $candidateW
+            } else {
+                $resolvedPython = $stdPython
+            }
+        } else {
+            $resolvedPython = "pythonw.exe"
+        }
     }
-    Write-Host "Using Python: $resolvedPython" -ForegroundColor Green
+    Write-Host "Using Headless Python: $resolvedPython" -ForegroundColor Green
 
-    # Task Action: Run python monitor.py in its working directory
-    $workDir = Join-Path $projectRoot "office-monitor"
+    # Task Action: Run pythonw monitor.py in office-monitor working directory
+    $workDir = $officeMonitorDir
     $taskAction = New-ScheduledTaskAction -Execute $resolvedPython -Argument "`"$monitorScript`"" -WorkingDirectory $workDir
 
-    # Trigger: Hourly repetition indefinitely (PRD Section 23)
-    $taskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Hours 1)
+    # Trigger: Repetition indefinitely every N minutes (default: 10 minutes)
+    $taskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
 
-    # Settings: Run on AC/battery, wake to run, restart on failure
+    # Settings: Hidden mode, run on AC/battery, wake to run, restart on failure
     $taskSettings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
         -StartWhenAvailable `
         -MultipleInstances IgnoreNew `
         -RestartCount 3 `
-        -RestartInterval (New-TimeSpan -Minutes 5)
+        -RestartInterval (New-TimeSpan -Minutes 5) `
+        -Hidden
 
-    # Register task: Run with highest privileges / system context for server room laptop (PRD Section 24)
+    # Task Principal: Run in background under SYSTEM (Session 0 isolation ensures zero window popup)
+    $taskPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
     try {
         # Check if already exists
         $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -73,16 +98,29 @@ if ($Action -eq "Register") {
             Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
         }
 
-        Register-ScheduledTask `
-            -TaskName $TaskName `
-            -Action $taskAction `
-            -Trigger $taskTrigger `
-            -Settings $taskSettings `
-            -Description "Hourly Network Health Monitor internal office check"
+        # Attempt registration with SYSTEM principal
+        try {
+            Register-ScheduledTask `
+                -TaskName $TaskName `
+                -Action $taskAction `
+                -Trigger $taskTrigger `
+                -Settings $taskSettings `
+                -Principal $taskPrincipal `
+                -Description "Office Network Health Monitor internal check (runs headlessly every $IntervalMinutes minutes)"
+        }
+        catch {
+            Write-Warning "Registration under SYSTEM principal failed. Registering under current user with Hidden mode..."
+            Register-ScheduledTask `
+                -TaskName $TaskName `
+                -Action $taskAction `
+                -Trigger $taskTrigger `
+                -Settings $taskSettings `
+                -Description "Office Network Health Monitor internal check (runs headlessly every $IntervalMinutes minutes)"
+        }
 
         Write-Host "`nTask '$TaskName' registered successfully!" -ForegroundColor Green
-        Write-Host "Schedule: Runs every 1 hour, even after laptop reboot." -ForegroundColor Green
-        Write-Host "To test run immediately, execute: .\setup_task_windows.ps1 -Action RunNow" -ForegroundColor Cyan
+        Write-Host "Schedule: Runs headlessly every $IntervalMinutes minutes (no terminal popup)." -ForegroundColor Green
+        Write-Host "To test run immediately in background: .\setup_task_windows.ps1 -Action RunNow" -ForegroundColor Cyan
     }
     catch {
         Write-Error "Failed to register scheduled task: $_"

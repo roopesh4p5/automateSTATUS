@@ -14,9 +14,12 @@ import threading
 import time
 
 # Ensure project paths are in sys.path
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+OFFICE_MONITOR_DIR = os.path.dirname(SCRIPTS_DIR)
+PROJECT_ROOT = os.path.dirname(OFFICE_MONITOR_DIR)
+
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "aws-backend"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "office-monitor"))
+sys.path.insert(0, OFFICE_MONITOR_DIR)
 
 from local_server import HealthApiHandler
 from lambda_function import lambda_handler

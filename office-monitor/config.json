@@ -1,9 +1,9 @@
 {
   "office_id": "bangalore",
   "office_name": "Bangalore",
-  "aws_endpoint": "http://localhost:8080/health",
-  "api_key": "bangalore-secret-key-123",
-  "check_interval_minutes": 60,
+  "aws_endpoint": "https://9eyhkjoj29.execute-api.us-east-1.amazonaws.com/automation/health",
+  "api_key": "secret-bangalore-key-12345",
+  "check_interval_minutes": 10,
   "targets": {
     "ping_targets": ["1.1.1.1", "8.8.8.8"],
     "dns_targets": ["google.com", "cloudflare.com"],

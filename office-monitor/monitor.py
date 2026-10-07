@@ -6,11 +6,12 @@ and transmits the standardized JSON report to AWS.
 """
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 import os
 import sys
+import time
 from typing import Any, Dict
 
 # Support running directly or as a module
@@ -48,7 +49,7 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
     config["aws_endpoint"] = os.environ.get("AWS_ENDPOINT", config.get("aws_endpoint", ""))
     config["api_key"] = os.environ.get("API_KEY", config.get("api_key", ""))
     config["check_interval_minutes"] = int(
-        os.environ.get("CHECK_INTERVAL_MINUTES", config.get("check_interval_minutes", 60))
+        os.environ.get("CHECK_INTERVAL_MINUTES", config.get("check_interval_minutes", 10))
     )
 
     return config
@@ -230,29 +231,22 @@ def print_summary_table(result: Dict[str, Any]) -> None:
     print("=" * 55 + "\n")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Office Network Health Monitor")
-    parser.add_argument("--config", "-c", default="config.json", help="Path to config.json")
-    parser.add_argument("--dry-run", action="store_true", help="Run checks without sending to AWS")
-    parser.add_argument("--quick", action="store_true", help="Skip bandwidth speed test for quick check")
-    parser.add_argument("--json", action="store_true", help="Output raw JSON to stdout")
-    args = parser.parse_args()
+def execute_cycle(
+    config: Dict[str, Any],
+    quick: bool = False,
+    dry_run: bool = False,
+    json_output: bool = False,
+) -> int:
+    """Run one full network check cycle and report to AWS."""
+    result = run_checks(config, skip_speed=quick)
 
-    # Load configuration
-    cfg_file = args.config if os.path.isabs(args.config) else os.path.join(os.path.dirname(__file__), args.config)
-    config = load_config(cfg_file)
-
-    # Run checks
-    result = run_checks(config, skip_speed=args.quick)
-
-    if args.json:
+    if json_output:
         print(json.dumps(result, indent=2))
     else:
         print_summary_table(result)
 
-    # Send report to AWS API if configured and not dry run
     endpoint = config.get("aws_endpoint")
-    if not args.dry_run and endpoint:
+    if not dry_run and endpoint:
         logger.info("Transmitting report to AWS endpoint: %s", endpoint)
         send_res = send_report(
             endpoint=endpoint,
@@ -265,12 +259,45 @@ def main() -> int:
         else:
             logger.error("Failed to transmit report to AWS: %s", send_res["error"])
             return 1
-    elif args.dry_run:
+    elif dry_run:
         logger.info("Dry-run mode: skipping AWS transmission.")
         return 0
     else:
         logger.warning("No aws_endpoint configured. Skipping transmission.")
         return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Office Network Health Monitor")
+    parser.add_argument("--config", "-c", default="config.json", help="Path to config.json")
+    parser.add_argument("--dry-run", action="store_true", help="Run checks without sending to AWS")
+    parser.add_argument("--quick", action="store_true", help="Skip bandwidth speed test for quick check")
+    parser.add_argument("--json", action="store_true", help="Output raw JSON to stdout")
+    parser.add_argument("--loop", "-l", action="store_true", help="Run continuously in a loop at the specified interval")
+    parser.add_argument("--interval", "-i", type=int, default=None, help="Check interval in minutes (default: config.json or 10)")
+    args = parser.parse_args()
+
+    # Load configuration
+    cfg_file = args.config if os.path.isabs(args.config) else os.path.join(os.path.dirname(__file__), args.config)
+    config = load_config(cfg_file)
+
+    interval_minutes = args.interval or config.get("check_interval_minutes", 10)
+
+    if args.loop:
+        logger.info("Continuous monitoring loop started (every %d min). Press Ctrl+C to stop.", interval_minutes)
+        last_exit = 0
+        try:
+            while True:
+                last_exit = execute_cycle(config, quick=args.quick, dry_run=args.dry_run, json_output=args.json)
+                next_time = (datetime.now() + timedelta(minutes=interval_minutes)).strftime("%H:%M:%S")
+                logger.info("Next check scheduled in %d minutes (at %s). Sleeping...", interval_minutes, next_time)
+                time.sleep(interval_minutes * 60)
+        except KeyboardInterrupt:
+            logger.info("Monitoring loop stopped by user.")
+            return 0
+        return last_exit
+
+    return execute_cycle(config, quick=args.quick, dry_run=args.dry_run, json_output=args.json)
 
 
 if __name__ == "__main__":

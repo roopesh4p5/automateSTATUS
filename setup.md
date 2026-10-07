@@ -198,7 +198,8 @@ C:\office-monitor\
 │   └── reporting.py
 └── scripts\
     ├── setup_task_windows.ps1
-    └── setup_task_windows.bat
+    ├── setup_task_windows.bat
+    └── run_headless.vbs
 ```
 
 ---
@@ -212,7 +213,7 @@ Open `C:\office-monitor\config.json` in Notepad and update the endpoint and API 
   "office_name": "Bangalore",
   "aws_endpoint": "https://abc123xyz.execute-api.ap-south-1.amazonaws.com/health",
   "api_key": "secret-bangalore-key-123",
-  "check_interval_minutes": 60,
+  "check_interval_minutes": 10,
   "targets": {
     "ping_targets": ["1.1.1.1", "8.8.8.8"],
     "dns_targets": ["google.com", "cloudflare.com"],
@@ -238,12 +239,18 @@ Open `C:\office-monitor\config.json` in Notepad and update the endpoint and API 
 ---
 
 ### Step 3.4: Test the Agent Manually
-Open Command Prompt (`cmd`) on the Windows laptop and run:
+Open Command Prompt (`cmd`) or terminal and run:
 
 ```cmd
 cd C:\office-monitor
 python monitor.py
 ```
+
+> **Testing in a Continuous Loop (Every 10 min):**
+> You can also run the monitor continuously in your terminal during testing:
+> ```cmd
+> python monitor.py --loop --interval 10
+> ```
 
 You should see:
 ```text
@@ -271,45 +278,47 @@ Check your email inbox — you should receive the formatted report with the 7-ch
 
 ---
 
-## 4. Automate with Windows Task Scheduler
+## 4. Automate with Windows Task Scheduler (Headless)
 
-Per PRD Section 23 & 24, the laptop must run the check every hour, survive laptop restarts, and run even if no user is logged in.
+Per PRD Section 23 & 24, the laptop runs automated health checks completely **headlessly** (no flashing CMD or terminal popups), survives laptop restarts, and runs even if no user is logged in.
 
 ### Method A: Automated PowerShell Setup (Recommended)
 1. On the Windows laptop, search for **PowerShell** in the Start Menu.
 2. Right-click **Windows PowerShell** -> **Run as Administrator**.
-3. Run:
+3. Run (automatically registers `pythonw.exe` in **Hidden** mode every **10 minutes**):
    ```powershell
    cd C:\office-monitor\scripts
-   .\setup_task_windows.ps1 -Action Register
+   .\setup_task_windows.ps1 -Action Register -IntervalMinutes 10
    ```
-4. To test trigger immediately:
+   *(For production hourly checks, run with `-IntervalMinutes 60`)*.
+4. To test trigger immediately in background:
    ```powershell
    .\setup_task_windows.ps1 -Action RunNow
    ```
 
 ### Method B: Automated Batch Setup
-1. Right-click `C:\office-monitor\scripts\setup_task_windows.bat` -> **Run as Administrator**.
+1. Right-click `C:\office-monitor\scripts\setup_task_windows.bat` -> **Run as Administrator** (or run `setup_task_windows.bat 10` from CMD). Automatically detects and uses `pythonw` for zero terminal popup.
 
-### Method C: Windows Task Scheduler GUI
+### Method C: Windows Task Scheduler GUI (Headless)
 If you prefer the graphical interface:
 1. Press `Win + R`, type `taskschd.msc`, and press Enter.
 2. Click **Create Task** (not Basic Task) in the right sidebar:
    - **General Tab**:
      - Name: `OfficeNetworkHealthMonitor`
+     - Check: **"Hidden"** *(ensures no window popup)*
      - Check: **"Run whether user is logged on or not"**
      - Check: **"Run with highest privileges"**
    - **Triggers Tab**:
      - Click **New...**
      - Begin the task: **On a schedule** -> **Daily**
      - Under Advanced settings:
-       - Check: **Repeat task every**: `1 hour`
+       - Check: **Repeat task every**: `10 minutes` (or `1 hour` in production)
        - For a duration of: `Indefinitely`
        - Check: **Enabled**
    - **Actions Tab**:
      - Click **New...**
      - Action: **Start a program**
-     - Program/script: `python` (or full path `C:\Users\admin\AppData\Local\Programs\Python\Python311\python.exe`)
+     - Program/script: `pythonw` (or full path e.g. `C:\Users\admin\AppData\Local\Programs\Python\Python311\pythonw.exe` — **important**: use `pythonw.exe`, NOT `python.exe`, so no black terminal flashes)
      - Add arguments: `"C:\office-monitor\monitor.py"`
      - Start in: `C:\office-monitor`
    - **Settings Tab**:
