@@ -25,10 +25,16 @@ from checks.speed import check_speed
 from utils.classifier import evaluate_technical_state
 from utils.reporting import send_report
 
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "monitor.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(LOG_FILE, encoding="utf-8", mode="a"),
+    ],
 )
 logger = logging.getLogger("OfficeMonitor")
 

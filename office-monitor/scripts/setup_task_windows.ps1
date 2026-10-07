@@ -53,7 +53,26 @@ if ($Action -eq "Register") {
     }
 
     # Verify and resolve headless pythonw.exe (prevents any terminal window from popping up)
-    $resolvedPython = (Get-Command $PythonPath -ErrorAction SilentlyContinue).Source
+    $resolvedPython = $null
+
+    # 1. Prefer direct Python installations if present (avoids WindowsApps alias issues)
+    $candidatePatterns = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python*\pythonw.exe",
+        "C:\Program Files\Python*\pythonw.exe",
+        "C:\Python*\pythonw.exe"
+    )
+    foreach ($pattern in $candidatePatterns) {
+        $found = Resolve-Path $pattern -ErrorAction SilentlyContinue
+        if ($found) {
+            $resolvedPython = $found[-1].Path
+            break
+        }
+    }
+
+    # 2. Fall back to PATH search
+    if (-not $resolvedPython) {
+        $resolvedPython = (Get-Command $PythonPath -ErrorAction SilentlyContinue).Source
+    }
     if (-not $resolvedPython) {
         $stdPython = (Get-Command "python.exe" -ErrorAction SilentlyContinue).Source
         if ($stdPython) {
@@ -95,10 +114,10 @@ if ($Action -eq "Register") {
         $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
         if ($existing) {
             Write-Host "Existing task found. Unregistering previous version..." -ForegroundColor Yellow
-            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
         }
 
-        # Attempt registration with SYSTEM principal
+        # Attempt registration with SYSTEM principal (requires Administrator)
         try {
             Register-ScheduledTask `
                 -TaskName $TaskName `
@@ -106,16 +125,20 @@ if ($Action -eq "Register") {
                 -Trigger $taskTrigger `
                 -Settings $taskSettings `
                 -Principal $taskPrincipal `
-                -Description "Office Network Health Monitor internal check (runs headlessly every $IntervalMinutes minutes)"
+                -Description "Office Network Health Monitor internal check (runs headlessly every $IntervalMinutes minutes)" `
+                -ErrorAction Stop
+            Write-Host "Registered task with SYSTEM principal (runs 24/7 in background)." -ForegroundColor Green
         }
         catch {
-            Write-Warning "Registration under SYSTEM principal failed. Registering under current user with Hidden mode..."
+            Write-Warning "Registration under SYSTEM principal failed (requires Run as Administrator). Registering under current user ($env:USERNAME) with Hidden mode..."
             Register-ScheduledTask `
                 -TaskName $TaskName `
                 -Action $taskAction `
                 -Trigger $taskTrigger `
                 -Settings $taskSettings `
-                -Description "Office Network Health Monitor internal check (runs headlessly every $IntervalMinutes minutes)"
+                -Description "Office Network Health Monitor internal check (runs headlessly every $IntervalMinutes minutes)" `
+                -ErrorAction Stop
+            Write-Host "Registered task under user '$env:USERNAME' with Hidden mode." -ForegroundColor Green
         }
 
         Write-Host "`nTask '$TaskName' registered successfully!" -ForegroundColor Green
